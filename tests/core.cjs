@@ -1,0 +1,16 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('dist/app.js','utf8').replace(/render\(\);\s*$/,'');
+const ctx=vm.createContext({structuredClone,crypto:require('node:crypto').webcrypto,localStorage:{getItem:()=>null,setItem:()=>{}},console});
+vm.runInContext(source,ctx);
+const run=s=>vm.runInContext(s,ctx);
+assert.equal(run(`reference('barcode,name,qty\\n00123,"اسم, طويل",4')[0].barcode`),'00123');
+assert.equal(run(`reference('barcode,name,qty\\n00123,"اسم, طويل",4')[0].name`),'اسم, طويل');
+assert.throws(()=>run(`reference('barcode,name,qty\\n001,a,1\\n001,b,2')`));
+assert.throws(()=>run(`reference('barcode,name,qty\\n001,a,-1')`));
+assert.equal(run(`results('RO-1001').find(x=>x.barcode==='628100100101').diff`),0);
+assert.equal(run(`results('RO-1001').find(x=>x.barcode==='628100100104').diff`),-30);
+assert.equal(run('groups().length'),1);
+assert.equal(run(`safeCell('=SUM(A1)')`),'"\'=SUM(A1)"');
+assert.equal(run(`db.role='employee'; visibleOps().length`),2);
+assert.equal(run(`db.ops.push({id:'hidden',staff:['u3'],supervisor:'x'}); visibleOps().length`),2);
+console.log('10 checks passed: CSV validation, barcode preservation, variances, duplicates, export escaping, assignment filtering.');

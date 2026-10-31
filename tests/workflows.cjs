@@ -1,0 +1,21 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),{File}=require('node:buffer');
+const qty={value:'1'},mockVideo={pause(){},srcObject:null};let stops=0;
+const document={querySelector(s){return s==='#scanForm'?{elements:{qty}}:s==='#barcodeVideo'?mockVideo:null},addEventListener(){},hidden:false};
+const ctx=vm.createContext({structuredClone,crypto:require('node:crypto').webcrypto,TextEncoder,Uint8Array,File,localStorage:{getItem:()=>null,setItem(){}},sessionStorage:{getItem:()=>null,setItem(){},removeItem(){}},document,window:{addEventListener(){}},console});
+vm.runInContext(fs.readFileSync('dist/app.js','utf8').replace(/render\(\);\s*$/,''),ctx);
+vm.runInContext(fs.readFileSync('dist/enhancements.js','utf8').replace(/\nrender\(\);/,'\n'),ctx);
+const run=s=>vm.runInContext(s,ctx);
+(async()=>{
+const a=await run(`passwordDigest('test-password-only','salt-a')`),b=await run(`passwordDigest('test-password-only','salt-a')`),c=await run(`passwordDigest('test-password-only','salt-b')`);assert.equal(a,b);assert.notEqual(a,c);assert.equal(a.length,64);
+run('quickQuantity(6)');assert.equal(qty.value,6);run('quickQuantity(12)');assert.equal(qty.value,12);run('quickQuantity(24)');assert.equal(qty.value,24);run('quickQuantity(1,true)');assert.equal(qty.value,25);
+await assert.rejects(run(`validReceipt(new File(['not pdf'],'receipt.pdf',{type:'application/pdf'}))`));
+await run(`validReceipt(new File(['%PDF-1.7\\nfixture'],'receipt.pdf',{type:'application/pdf'}))`);
+assert.equal((run('packageCards()').match(/اختيار الباقة/g)||[]).length,4);
+run(`db.role='employee'; db.ops.push({id:'not-assigned',status:'open',name:'Hidden operation',staff:['u3'],supervisor:'other'});`);
+assert(!run('employeeHome()').includes('Hidden operation'));assert(!run('employeeHome()').includes('التقارير'));assert(!run('scanPage()').includes('آخر إدخالاتك'));
+run(`db.demoAccounts.push({id:'test',company:'Test Co',email:'test@example.invalid'});currentAccount='test';db.requests.push({id:'REQ-TEST',accountId:'test',company:'Test Co',email:'test@example.invalid',plan:1,status:'approved'});`);
+assert(run('checkoutPage()').includes('تم قبول طلبك التجريبي'));
+run(`db.requests[0].status='pending'`);assert(run('checkoutPage()').includes('طلبك قيد المعالجة'));
+ctx.testStream={getTracks:()=>[{stop:()=>stops++}]};run(`cameraStream=testStream;stopCamera()`);assert.equal(stops,1);
+console.log('Workflow checks passed: password derivation, quantity shortcuts, receipt signature validation, four packages, employee assignments, pending/approved state and camera cleanup.');
+})().catch(e=>{console.error(e);process.exit(1)});
