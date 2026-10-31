@@ -1,0 +1,14 @@
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
+const ctx=vm.createContext({structuredClone,crypto:require('node:crypto').webcrypto,TextEncoder,TextDecoder,Uint8Array,DataView,Blob,Response,DecompressionStream,atob,localStorage:{getItem:()=>null,setItem(){}},sessionStorage:{getItem:()=>null,setItem(){}},document:{querySelector:()=>null,addEventListener(){}},window:{addEventListener(){}},navigator:{},setTimeout:()=>0,console});
+for(const file of ['app.js','enhancements.js','platform.js','blue-theme.js','ro-files.js','ux.js'])vm.runInContext(fs.readFileSync('dist/'+file,'utf8').replace(/^render\(\);$/gm,''),ctx);
+const run=s=>vm.runInContext(s,ctx);
+assert.equal(run('db.branches.length'),2);
+assert.equal(run("referenceWithArabic('الباركود,اسم الصنف,الكمية\\n0012,قميص,6')[0].barcode"),'0012');
+assert.throws(()=>run("referenceWithArabic('barcode,name,qty\\n0012,A,2\\n0012,B,3')"));
+run("db.role='employee';op('RO-1001').enabled=false");assert.equal(run("visibleOps().some(o=>o.id==='RO-1001')"),false);assert.throws(()=>run("applyQuantityCorrection('RO-1001','628100100101','A1',7,'test')"));
+run("db.role='company';op('RO-1001').enabled=true");const before=run('db.logs.length');run("applyQuantityCorrection('RO-1001','628100100101','A1',9,'عد تحقق')");assert.equal(run("results('RO-1001').find(r=>r.barcode==='628100100101').count"),9);assert.equal(run('db.logs.length'),before+1);assert.equal(run('db.logs.at(-1).replaces.length'),2);assert.equal(run("db.logs.filter(l=>['l1','l4'].includes(l.id)&&l.excluded).length"),2);
+assert.throws(()=>run("applyQuantityCorrection('RO-1001','X','A1',-1,'test')"));
+run("op('RO-1001').status='closed'");assert.throws(()=>run("applyQuantityCorrection('RO-1001','X','A1',1,'test')"));
+run("db.platformRole='security';setPlanFeature(1,'word',false)");assert.equal(run("hasFeature('word')"),true);run("db.platformRole='superadmin';setPlanFeature(1,'word',false)");assert.equal(run("hasFeature('word')"),false);
+assert.ok(run('packageCards()').includes('مقفلة'));assert.ok(run('landing()').includes('الطريقة الورقية التقليدية'));
+(async()=>{const blob=run("ROFiles.docx('أوركيد',op('RO-1001'),results('RO-1001'),null)");const bytes=await blob.arrayBuffer();fs.writeFileSync('/tmp/ro-ux-report.docx',Buffer.from(bytes));const files=await run('ROFiles.unzip')(bytes);assert.ok(files['word/document.xml'].includes('أوركيد'));assert.ok(files['word/document.xml'].includes('628100100101'));console.log('UX checks passed: branch migration, Arabic CSV, assignment pause, correction history, closed-operation guard, feature-role guard, locked cards and DOCX ZIP roundtrip.');})().catch(e=>{console.error(e);process.exit(1)});
