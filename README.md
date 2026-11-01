@@ -66,3 +66,6 @@ The latest visual system follows the supplied navy/electric-blue reference: full
 - Local company directory with approval/suspension preview; configurable package feature switches.
 
 All management state remains browser-local. Live synchronization, device binding and company isolation require an authenticated backend. Tests: `node tests/ux.cjs` in addition to the three existing suites.
+
+## Workspace redesign
+Task-focused dashboard with operation progress, pending duplicate decisions and staff totals. Reporting center includes variance search/status/branch filters, employee output and complete count/correction history. CSV/PDF export follows the active tab; filtered item DOCX is supported. Employee scanning keeps the camera lifecycle and count guards, folds location/notes, and confirms saves inline. `node tests/workspace.cjs` checks calculations, filtered export and scopes. Physical-camera tests remain outstanding.

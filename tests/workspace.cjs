@@ -1,0 +1,15 @@
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
+const ctx=vm.createContext({structuredClone,crypto:require('node:crypto').webcrypto,TextEncoder,TextDecoder,Uint8Array,DataView,Blob,Response,DecompressionStream,atob,localStorage:{getItem:()=>null,setItem(){}},sessionStorage:{getItem:()=>null,setItem(){}},document:{querySelector:()=>null,addEventListener(){}},window:{addEventListener(){}},navigator:{},setTimeout:()=>0,console});
+for(const f of ['app','enhancements','platform','blue-theme','ro-files','ux','workspace'])vm.runInContext(fs.readFileSync('dist/'+f+'.js','utf8').replace(/^render\(\);$/gm,''),ctx);
+const run=s=>vm.runInContext(s,ctx);
+assert.equal(run("operationSummary(op('RO-1001')).percent"),75);
+assert.equal(run("operationSummary(op('RO-1001')).shortage"),30);
+assert.equal(run("operationSummary(op('RO-1001')).surplus"),2);
+assert.equal(run("operationSummary(op('RO-1002')).percent"),null);
+run("selected='RO-1001';reportState='surplus'");assert.equal(run('reportData().length'),1);assert.equal(run('reportExportRows()[1][0]'),'628100100102');
+run("reportState='unseen'");assert.equal(run('reportData()[0].barcode'),'628100100104');
+run("reportState='all';reportQuery='جاكيت'");assert.equal(run('reportData().length'),1);
+run("reportKind='employees'");assert.equal(run('reportExportRows().length'),3);
+run("db.logs[0].excluded=true;reportKind='history'");assert.equal(run('reportExportRows().length'),5);assert.equal(run('reportExportRows()[1][4]'),'نعم');
+run("db.role='supervisor';db.ops.push({...structuredClone(db.ops[0]),id:'OTHER',supervisor:'other'});selected='OTHER'");assert.equal(run('reportExportRows().length'),0);
+console.log('Workspace checks passed: reference coverage, free-count semantics, shortage/surplus, filtered exports, employee totals, excluded history and supervisor scope.');
